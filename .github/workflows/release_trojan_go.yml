@@ -1,0 +1,57 @@
+name: Trojan-Go Plugin Release Build
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag'
+        required: true
+      upload:
+        description: 'Upload: If want ignore'
+        required: false
+#      publish:
+#        description: 'Publish: If want ignore'
+#        required: false
+jobs:
+  check:
+    name: Check Access
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Check access"
+        uses: "lannonbr/repo-permission-check-action@2.0.0"
+        with:
+          permission: "write"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  native:
+    name: Native Build
+    runs-on: ubuntu-latest
+    needs:
+      - check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Trojan-Go Cache
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            jniLibs
+          key: ${{ hashFiles('bin/libs/trojan_go.sh', 'trojan_go_status') }}
+      - name: Install Golang
+        uses: actions/setup-go@v2
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          go-version: 1.16
+      - name: Make run executable
+        run: chmod +x ./run
+      - name: Native Build
+        run: |
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "ndk.dir=${ANDROID_HOME}/ndk/21.4.7075529" >> local.properties
+          ./run libs trojan_go
+      - name: upload assets
+        uses: actions/upload-artifact@v2
+        with:
+          name: jniLibs
+          path: jniLibs/*
+
